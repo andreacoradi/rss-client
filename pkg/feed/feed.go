@@ -1,9 +1,8 @@
-package main
+package feed
 
 import (
 	"encoding/xml"
 	"fmt"
-	"os"
 	"time"
 )
 
@@ -74,6 +73,16 @@ func (f *Feed) AddSource(rss RSS) {
 	*f = append(*f, rss)
 }
 
+func (f Feed) GetItems() []Item {
+	var ret []Item
+	for _, source := range f {
+		for _, item := range source.Channel.Items {
+			ret = append(ret, item)
+		}
+	}
+	return ret
+}
+
 func NewRSS(c []byte) (RSS, error) {
 	var feed RSS
 	if err := xml.Unmarshal(c, &feed); err != nil {
@@ -81,27 +90,4 @@ func NewRSS(c []byte) (RSS, error) {
 	}
 
 	return feed, nil
-}
-
-func main() {
-	feed := Feed{}
-	fonti := []string{"tecnologia_rss.xml", "mondo_rss.xml"}
-	for _, fonte := range fonti {
-		c, err := os.ReadFile(fonte)
-		if err != nil {
-			panic(err)
-		}
-
-		rss, err := NewRSS(c)
-		if err != nil {
-			panic(err)
-		}
-		feed.AddSource(rss)
-	}
-
-	for _, source := range feed {
-		for _, item := range source.Channel.Items {
-			fmt.Println(item)
-		}
-	}
 }
