@@ -3,6 +3,10 @@ package feed
 import (
 	"encoding/xml"
 	"fmt"
+	"html/template"
+	"log"
+	"net/http"
+	"os"
 	"time"
 )
 
@@ -56,24 +60,20 @@ func (i Item) String() string {
 	return ret
 }
 
-//func (i *Item) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-//	var s string
-//	if err := d.DecodeElement(&s, &start); err != nil {
-//		return err
-//	}
-//
-//	fmt.Println(s)
-//
-//	return nil
-//}
+func (i Item) GetDate() string {
+	delta := time.Now().Sub(time.Time(i.PubDate))
+	return fmt.Sprintf("%d hours ago", int(delta.Hours()))
+}
 
 type Feed []RSS
 
 func (f *Feed) AddSource(rss RSS) {
+	// TODO: Implement the concept of categories
 	*f = append(*f, rss)
 }
 
 func (f Feed) GetItems() []Item {
+	// TODO: Order by latest
 	var ret []Item
 	for _, source := range f {
 		for _, item := range source.Channel.Items {
@@ -90,4 +90,55 @@ func NewRSS(c []byte) (RSS, error) {
 	}
 
 	return feed, nil
+}
+
+func NewFeed(sourceDir string) (Feed, error) {
+	feed := Feed{}
+	//sourceDir := "sources"
+	dir, err := os.ReadDir(sourceDir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range dir {
+		c, err := os.ReadFile(fmt.Sprintf("%s/%s", sourceDir, file.Name()))
+		if err != nil {
+			return nil, err
+		}
+
+		rss, err := NewRSS(c)
+		if err != nil {
+			return nil, err
+		}
+		feed.AddSource(rss)
+	}
+
+	return feed, nil
+}
+
+type handler struct {
+	feed Feed
+	tpl  *template.Template
+}
+
+func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	//path := strings.TrimSpace(r.URL.Path)
+	//if path == "" || path == "/" {
+	//	path = "/intro"
+	//}
+	//path = path[1:]
+
+	items := h.feed.GetItems()
+	err := h.tpl.Execute(w, items)
+	if err != nil {
+		log.Printf(err.Error())
+		http.Error(w, "Something went wrong...", http.StatusBadRequest)
+	}
+
+	// TODO: Categories
+	//http.Error(w, fmt.Sprintf("Could not find category %q", path), http.StatusNotFound)
+}
+
+func NewHandler(feed Feed, template *template.Template) http.Handler {
+	return handler{feed, template}
 }

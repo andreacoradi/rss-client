@@ -1,11 +1,14 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
-	"github.com/andreacoradi/rssc/pkg/feed"
+	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"os"
+	"rssc/pkg/feed"
 )
 
 func DownloadFile(filepath string, url string) error {
@@ -25,36 +28,50 @@ func DownloadFile(filepath string, url string) error {
 	return err
 }
 
-func main() {
-	f := feed.Feed{}
-
+func Add(args []string) {
 	// Download fonte
-	//url := "https://www.ansa.it/lombardia/notizie/lombardia_rss.xml"
-	//err := DownloadFile("sources/lombardia.xml", url)
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	sourceDir := "sources"
-	dir, err := os.ReadDir(sourceDir)
+	//f := feed.Feed{}
+	url := "https://www.ansa.it/lombardia/notizie/lombardia_rss.xml"
+	err := DownloadFile("sources/lombardia.xml", url)
 	if err != nil {
 		panic(err)
 	}
 
-	for _, file := range dir {
-		c, err := os.ReadFile(fmt.Sprintf("%s/%s", sourceDir, file.Name()))
-		if err != nil {
-			panic(err)
-		}
+}
 
-		rss, err := feed.NewRSS(c)
-		if err != nil {
-			panic(err)
-		}
-		f.AddSource(rss)
+// TODO: Embed a directory instead
+//go:embed template.gohtml
+var templateText string
+
+func main() {
+	//templateText, err := ioutil.ReadFile("template.gohtml")
+	//if err != nil {
+	//	log.Fatal("could not read file")
+	//}
+	tpl := template.Must(template.New("").Parse(string(templateText)))
+
+	f, err := feed.NewFeed("sources")
+	if err != nil {
+		panic(err)
 	}
 
-	for _, item := range f.GetItems() {
-		fmt.Println(item)
-	}
+	handler := feed.NewHandler(f, tpl)
+
+	fmt.Println("Starting server...")
+	log.Fatal(http.ListenAndServe("localhost:3000", handler))
+	//if len(os.Args) > 1 {
+	//	switch os.Args[1] {
+	//	case "start":
+	//		Start()
+	//		return
+	//	case "add":
+	// 		Add(os.Args[1:])
+	//		return
+	//	}
+	//}
+	//
+	//f := feed.Feed{}
+	//for _, item := range f.GetItems() {
+	//	fmt.Println(item)
+	//}
 }

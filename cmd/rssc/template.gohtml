@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RSS Feed</title>
+</head>
+<body>
+    {{ range . }}
+        <h1>{{ .Title }} ({{ .GetDate }})</h1>
+        <p>{{ .Description }}</p>
+        <a href="{{ .Link }}">Go to site</a>
+    {{ end }}
+</body>
+</html>
