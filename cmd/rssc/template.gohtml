@@ -3,12 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <title>RSS Feed</title>
+    <style>
+        body {
+            padding: 20px;
+        }
+        body, a {
+            color: #333;
+            font-family: sans-serif;
+        }
+        li {
+            padding: 4px 0;
+        }
+        .host {
+            color: #888;
+        }
+        .time {
+            color: #888;
+            padding: 10px 0;
+        }
+    </style>
 </head>
 <body>
     {{ range . }}
-        <h1>{{ .Title }} ({{ .GetDate }})</h1>
-        <p>{{ .Description }}</p>
-        <a href="{{ .Link }}">Go to site</a>
+        <li><a href="{{.URL}}">{{.Title}}</a> <span class="host">({{.GetHost}}</span> / <span class="time">{{.GetDate}})</span></li>
     {{ end }}
 </body>
 </html>
