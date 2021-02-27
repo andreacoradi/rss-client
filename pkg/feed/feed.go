@@ -92,15 +92,18 @@ func InitFeed(links []string) Feed {
 	return sources
 }
 
-func (f Feed) GetItems() ([]Item, error) {
-	// TODO: Order by latest
+func (f Feed) GetItems() []Item {
 	var ret []Item
 	for _, source := range f {
 		for _, item := range source.Channel.Items {
 			ret = append(ret, item)
 		}
 	}
-	return ret, nil
+	sort.Slice(ret, func(i, j int) bool {
+		return time.Time(ret[i].PubDate).After(time.Time(ret[j].PubDate))
+	})
+
+	return ret
 }
 
 var (
@@ -115,11 +118,8 @@ func (f Feed) GetCachedItems() ([]Item, error) {
 	if time.Now().Before(cacheExpiration) {
 		return cache, nil
 	}
-	items, err := f.GetItems()
-	if err != nil {
-		return nil, err
-	}
-	cache = items
+
+	cache = f.GetItems()
 	cacheExpiration = time.Now().Add(time.Minute * 10)
 	return cache, nil
 }
@@ -187,7 +187,6 @@ func (h handler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 
 	log.Println("Refresh time:", time.Now().Sub(start))
 
-	// TODO: Categories
 	//http.Error(w, fmt.Sprintf("Could not find category %q", path), http.StatusNotFound)
 }
 
@@ -243,10 +242,6 @@ func (c Client) GetLatest() []RSS {
 
 		ret = append(ret, res.rss)
 	}
-
-	sort.Slice(ret, func(i, j int) bool {
-		return time.Time(ret[i].Channel.PubDate).Before(time.Time(ret[j].Channel.PubDate))
-	})
 
 	return ret
 }
