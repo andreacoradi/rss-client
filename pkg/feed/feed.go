@@ -72,7 +72,16 @@ func (f *Feed) AddSource(rss RSS) {
 	*f = append(*f, rss)
 }
 
-func (f Feed) GetItems() []Item {
+func InitFeed(links []string) Feed {
+	start := time.Now()
+	c := Client{sources: links}
+	sources := c.GetLatest()
+
+	log.Println("Init time:", time.Now().Sub(start))
+	return sources
+}
+
+func (f Feed) GetItems() ([]Item, error) {
 	// TODO: Order by latest
 	var ret []Item
 	for _, source := range f {
@@ -80,7 +89,28 @@ func (f Feed) GetItems() []Item {
 			ret = append(ret, item)
 		}
 	}
-	return ret
+	return ret, nil
+}
+
+var (
+	cache           []Item
+	cacheExpiration time.Time
+	cacheMutex      sync.Mutex
+)
+
+func (f Feed) GetCachedItems() ([]Item, error) {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+	if time.Now().Before(cacheExpiration) {
+		return cache, nil
+	}
+	items, err := f.GetItems()
+	if err != nil {
+		return nil, err
+	}
+	cache = items
+	cacheExpiration = time.Now().Add(time.Minute * 10)
+	return cache, nil
 }
 
 func NewRSS(c []byte) (RSS, error) {
@@ -92,6 +122,7 @@ func NewRSS(c []byte) (RSS, error) {
 	return feed, nil
 }
 
+// Useless for now
 func NewFeed(sourceDir string) (Feed, error) {
 	feed := Feed{}
 	//sourceDir := "sources"
@@ -121,19 +152,29 @@ type handler struct {
 	tpl  *template.Template
 }
 
-func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h handler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	//path := strings.TrimSpace(r.URL.Path)
 	//if path == "" || path == "/" {
 	//	path = "/intro"
 	//}
 	//path = path[1:]
-
-	items := h.feed.GetItems()
-	err := h.tpl.Execute(w, items)
+	start := time.Now()
+	// FIXME: Better error handling
+	items, err := h.feed.GetCachedItems()
 	if err != nil {
 		log.Printf(err.Error())
 		http.Error(w, "Something went wrong...", http.StatusBadRequest)
+		return
 	}
+
+	err = h.tpl.Execute(w, items)
+	if err != nil {
+		log.Printf(err.Error())
+		http.Error(w, "Something went wrong...", http.StatusBadRequest)
+		return
+	}
+
+	log.Println("Refresh time:", time.Now().Sub(start))
 
 	// TODO: Categories
 	//http.Error(w, fmt.Sprintf("Could not find category %q", path), http.StatusNotFound)
@@ -141,4 +182,60 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func NewHandler(feed Feed, template *template.Template) http.Handler {
 	return handler{feed, template}
+}
+
+func parseRSS(r io.Reader) (RSS, error) {
+	dec := xml.NewDecoder(r)
+	var rss RSS
+	err := dec.Decode(&rss)
+	if err != nil {
+		return RSS{}, err
+	}
+
+	return rss, nil
+}
+
+type Client struct {
+	sources []string
+}
+
+func (c *Client) AddSource(link string) {
+	c.sources = append(c.sources, link)
+}
+
+func (c Client) GetLatest() []RSS {
+	type result struct {
+		rss RSS
+		err error
+	}
+	resultCh := make(chan result, len(c.sources))
+	for _, link := range c.sources {
+		go func(link string) {
+			resp, err := http.Get(link)
+			if err != nil {
+				resultCh <- result{err: err}
+				return
+			}
+			defer resp.Body.Close()
+
+			rss, err := parseRSS(resp.Body)
+			resultCh <- result{rss: rss}
+		}(link)
+	}
+
+	var ret []RSS
+	for i := 0; i < len(c.sources); i++ {
+		res := <-resultCh
+		if res.err != nil {
+			continue
+		}
+
+		ret = append(ret, res.rss)
+	}
+
+	sort.Slice(ret, func(i, j int) bool {
+		return time.Time(ret[i].Channel.PubDate).Before(time.Time(ret[j].Channel.PubDate))
+	})
+
+	return ret
 }
