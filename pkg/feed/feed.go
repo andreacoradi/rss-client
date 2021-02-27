@@ -4,9 +4,13 @@ import (
 	"encoding/xml"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"sort"
+	"sync"
 	"time"
 )
 
@@ -32,7 +36,7 @@ type Channel struct {
 	XMLName       xml.Name   `xml:"channel"`
 	Title         string     `xml:"title"`
 	Description   string     `xml:"description"`
-	Link          string     `xml:"link"`
+	URL           string     `xml:"link"`
 	LastBuildDate customTime `xml:"lastBuildDate"`
 	PubDate       customTime `xml:"pubDate"`
 	Items         []Item     `xml:"item"`
@@ -41,7 +45,7 @@ type Channel struct {
 type Item struct {
 	XMLName     xml.Name   `xml:"item"`
 	Title       string     `xml:"title"`
-	Link        string     `xml:"guid"`
+	URL         string     `xml:"guid"`
 	Description string     `xml:"description"`
 	PubDate     customTime `xml:"pubDate"`
 }
@@ -56,13 +60,20 @@ func (i Item) String() string {
 	var ret string
 	ret += fmt.Sprintf("%s (%v)\n", i.Title, time.Time(i.PubDate))
 	//ret += fmt.Sprintf("%s\n", i.Description)
-	ret += fmt.Sprintf("%s\n", i.Link)
+	ret += fmt.Sprintf("%s\n", i.URL)
 	return ret
 }
 
 func (i Item) GetDate() string {
 	delta := time.Now().Sub(time.Time(i.PubDate))
+	// FIXME
 	return fmt.Sprintf("%d hours ago", int(delta.Hours()))
+	//return delta.Round(time.Hour).String()
+}
+
+func (i Item) GetHost() string {
+	r, _ := url.Parse(i.URL)
+	return r.Host
 }
 
 type Feed []RSS
