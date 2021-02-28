@@ -20,8 +20,8 @@ func (f *Feed) AddSource(link string) {
 	f.client.addSource(link)
 }
 
-func NewFeed() Feed {
-	return Feed{Sources: []RSS{}, client: client{}}
+func NewFeed(interval int) Feed {
+	return Feed{Sources: []RSS{}, client: client{interval: interval}}
 }
 
 func (f Feed) Items() []Item {
@@ -47,7 +47,7 @@ func (f Feed) CachedItems() []Item {
 	}
 
 	cache = f.Items()
-	cacheExpiration = time.Now().Add(time.Minute * 10)
+	cacheExpiration = time.Now().Add(time.Minute * time.Duration(f.client.interval))
 	return cache
 }
 

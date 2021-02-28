@@ -82,7 +82,8 @@ func (i Item) GetHost() string {
 }
 
 type client struct {
-	urls []string
+	urls     []string
+	interval int
 }
 
 func parseRSS(r io.Reader) (RSS, error) {
