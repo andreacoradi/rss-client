@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	_ "embed"
+	"flag"
 	"fmt"
 	"html/template"
 	"log"
@@ -12,26 +13,27 @@ import (
 	"rssc/rss"
 )
 
-// TODO: Embed a directory instead?
 //go:embed template.gohtml
 var templateText string
 
 func main() {
+	port := flag.Int("port", 3000, "port to run web server on")
+	sourceFile := flag.String("sources", "sources.list", "provide a text file containing rss sources (links)")
+	flag.Parse()
+
 	tpl := template.Must(template.New("").Parse(templateText))
 
-	sourcesList, _ := os.ReadFile("sources.list")
-
 	f := client.NewFeed()
-	s := bufio.NewScanner(bytes.NewReader(sourcesList))
-	for s.Scan() {
-		f.AddSource(s.Text())
+	sourcesList, err := os.ReadFile(*sourceFile)
+	if err == nil {
+		s := bufio.NewScanner(bytes.NewReader(sourcesList))
+		for s.Scan() {
+			f.AddSource(s.Text())
+		}
 	}
-
-	f.AddSource("https://www.ansa.it/sito/notizie/mondo/mondo_rss.xml")
-	f.AddSource("https://omgubuntu.co.uk/feed")
 
 	handler := client.NewHandler(f, tpl)
 
-	fmt.Println("Starting server...")
-	log.Fatal(http.ListenAndServe("localhost:3000", handler))
+	fmt.Printf("Starting server on port %d...\n", *port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf("localhost:%d", *port), handler))
 }
