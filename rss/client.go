@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -60,10 +61,19 @@ func (i Item) String() string {
 }
 
 func (i Item) GetDate() string {
-	delta := time.Now().Sub(time.Time(i.PubDate))
-	// FIXME
-	return fmt.Sprintf("%d hours ago", int(delta.Hours()))
-	//return delta.Round(time.Hour).String()
+	delta := time.Now().Sub(time.Time(i.PubDate)).Round(time.Minute)
+	// FIXME: This could be better
+	hours := delta.Hours()
+	minutes := delta.Minutes()
+	if hours > 24 {
+		return fmt.Sprintf("%d days ago", int(hours/24))
+	}
+
+	if hours == 0 {
+		return fmt.Sprintf("%d minutes ago", int(minutes))
+	}
+
+	return fmt.Sprintf("%d hours ago", int(hours))
 }
 
 func (i Item) GetHost() string {
