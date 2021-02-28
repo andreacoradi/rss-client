@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"rssc/pkg/feed"
+	"rssc/rss"
 )
 
 // TODO: Embed a directory instead?
@@ -19,19 +19,18 @@ var templateText string
 func main() {
 	tpl := template.Must(template.New("").Parse(templateText))
 
-	//f, err := feed.NewFeed("sources")
-
 	sourcesList, _ := os.ReadFile("sources.list")
 
-	var links []string
+	f := client.NewFeed()
 	s := bufio.NewScanner(bytes.NewReader(sourcesList))
 	for s.Scan() {
-		links = append(links, s.Text())
+		f.AddSource(s.Text())
 	}
 
-	f := feed.InitFeed(links)
+	f.AddSource("https://www.ansa.it/sito/notizie/mondo/mondo_rss.xml")
+	f.AddSource("https://omgubuntu.co.uk/feed")
 
-	handler := feed.NewHandler(f, tpl)
+	handler := client.NewHandler(f, tpl)
 
 	fmt.Println("Starting server...")
 	log.Fatal(http.ListenAndServe("localhost:3000", handler))
