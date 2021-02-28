@@ -68,7 +68,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	err := h.tpl.Execute(w, items)
 	if err != nil {
 		log.Printf(err.Error())
-		http.Error(w, "Something went wrong...", http.StatusBadRequest)
+		http.Error(w, "Something went wrong...", http.StatusInternalServerError)
 		return
 	}
 
