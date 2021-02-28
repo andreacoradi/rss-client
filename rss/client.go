@@ -78,7 +78,7 @@ func (i Item) GetDate() string {
 
 func (i Item) GetHost() string {
 	r, _ := url.Parse(i.URL)
-	return r.Host
+	return strings.TrimLeft(r.Host, "www.")
 }
 
 type client struct {
