@@ -26,6 +26,8 @@
 <body>
     {{ range . }}
         <li><a href="{{.URL}}">{{.Title}}</a> <span class="host">({{.GetHost}}</span> / <span class="time">{{.GetDate}})</span></li>
+    {{else}}
+        <h2>Nothing here...</h2>
     {{ end }}
 </body>
 </html>
