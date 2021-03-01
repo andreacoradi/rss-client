@@ -14,32 +14,34 @@ type Feed struct {
 	client  client
 }
 
-func (f *Feed) AddSource(link string) {
+func (f *Feed) AddSource(category, link string) {
 	// TODO: Implement the concept of categories
 	// FIXME: Invalidate cache to show articles from added source
-	f.client.addSource(link)
+	f.client.addSource(category, link)
 }
 
 func NewFeed(interval int) Feed {
-	return Feed{Sources: []RSS{}, client: client{interval: interval}}
+	return Feed{Sources: []RSS{}, client: client{interval: interval, urls: make(map[string][]string)}}
 }
 
-func (f Feed) Items() []Item {
+func (f Feed) Items() map[string][]Item {
 	ret := f.client.getLatest()
-	sort.Slice(ret, func(i, j int) bool {
-		return time.Time(ret[i].PubDate).After(time.Time(ret[j].PubDate))
-	})
+	for _, items := range ret {
+		sort.Slice(items, func(i, j int) bool {
+			return time.Time(items[i].PubDate).After(time.Time(items[j].PubDate))
+		})
+	}
 
 	return ret
 }
 
 var (
-	cache           []Item
+	cache           map[string][]Item
 	cacheExpiration time.Time
 	cacheMutex      sync.Mutex
 )
 
-func (f Feed) CachedItems() []Item {
+func (f Feed) CachedItems() map[string][]Item {
 	cacheMutex.Lock()
 	defer cacheMutex.Unlock()
 	if time.Now().Before(cacheExpiration) {

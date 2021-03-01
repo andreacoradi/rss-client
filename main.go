@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"rssc/rss"
 )
@@ -26,10 +27,16 @@ func main() {
 
 	f := client.NewFeed(*updateTime)
 	sourcesList, err := os.ReadFile(*sourceFile)
+	var category string
 	if err == nil {
 		s := bufio.NewScanner(bytes.NewReader(sourcesList))
 		for s.Scan() {
-			f.AddSource(s.Text())
+			// FIXME: Find a better way to do this so we can also use relative paths
+			if u, _ := url.Parse(s.Text()); !u.IsAbs() {
+				category = s.Text()
+				continue
+			}
+			f.AddSource(category, s.Text())
 		}
 	}
 

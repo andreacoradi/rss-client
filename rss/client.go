@@ -63,17 +63,17 @@ func (i Item) String() string {
 func (i Item) GetDate() string {
 	delta := time.Now().Sub(time.Time(i.PubDate)).Round(time.Minute)
 	// FIXME: This could be better
-	hours := delta.Hours()
-	minutes := delta.Minutes()
+	hours := int(delta.Hours())
+	minutes := int(delta.Minutes())
 	if hours > 24 {
-		return fmt.Sprintf("%d days ago", int(hours/24))
+		return fmt.Sprintf("%d days ago", hours/24)
 	}
 
 	if hours == 0 {
-		return fmt.Sprintf("%d minutes ago", int(minutes))
+		return fmt.Sprintf("%d minutes ago", minutes)
 	}
 
-	return fmt.Sprintf("%d hours ago", int(hours))
+	return fmt.Sprintf("%d hours ago", hours)
 }
 
 func (i Item) GetHost() string {
@@ -82,7 +82,7 @@ func (i Item) GetHost() string {
 }
 
 type client struct {
-	urls     []string
+	urls     map[string][]string
 	interval int
 }
 
@@ -97,42 +97,47 @@ func parseRSS(r io.Reader) (RSS, error) {
 	return rss, nil
 }
 
-func (c *client) addSource(link string) {
-	c.urls = append(c.urls, link)
+func (c *client) addSource(category, link string) {
+	c.urls[category] = append(c.urls[category], link)
 }
 
-func (c client) getLatest() []Item {
+func (c client) getLatest() map[string][]Item {
 	type result struct {
-		items []Item
-		err   error
+		category string
+		items    []Item
+		err      error
 	}
-	resultCh := make(chan result, len(c.urls))
-	for _, link := range c.urls {
-		go func(link string) {
-			resp, err := http.Get(link)
-			if err != nil {
-				resultCh <- result{err: err}
-				return
-			}
-			defer resp.Body.Close()
+	resultCh := make(chan result)
+	n := 0
+	for category, links := range c.urls {
+		n += len(links)
+		for _, link := range links {
+			go func(category, link string) {
+				resp, err := http.Get(link)
+				if err != nil {
+					resultCh <- result{err: err}
+					return
+				}
+				defer resp.Body.Close()
 
-			rss, err := parseRSS(resp.Body)
-			if err != nil {
-				resultCh <- result{err: err}
-				return
-			}
-			resultCh <- result{items: rss.Channel.Items}
-		}(link)
+				rss, err := parseRSS(resp.Body)
+				if err != nil {
+					resultCh <- result{err: err}
+					return
+				}
+				resultCh <- result{category: category, items: rss.Channel.Items}
+			}(category, link)
+		}
 	}
 
-	var ret []Item
-	for i := 0; i < len(c.urls); i++ {
+	ret := make(map[string][]Item)
+	for i := 0; i < n; i++ {
 		res := <-resultCh
 		if res.err != nil {
 			continue
 		}
 
-		ret = append(ret, res.items...)
+		ret[res.category] = append(ret[res.category], res.items...)
 	}
 
 	return ret
