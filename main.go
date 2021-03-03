@@ -32,8 +32,7 @@ func main() {
 	if err == nil {
 		s := bufio.NewScanner(bytes.NewReader(sourcesList))
 		for s.Scan() {
-			// FIXME: Find a better way to do this so we can also use relative paths
-			if u, _ := url.Parse(s.Text()); !u.IsAbs() {
+			if _, err := url.ParseRequestURI(s.Text()); err != nil {
 				category = s.Text()
 				continue
 			}
