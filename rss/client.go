@@ -14,18 +14,30 @@ type customTime time.Time
 
 func (c *customTime) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var v string
-	err := d.DecodeElement(&v, &start)
+	var err error
+	err = d.DecodeElement(&v, &start)
 	if err != nil {
 		return err
 	}
 
-	parse, err := time.Parse(time.RFC1123Z, v)
-	if err != nil {
-		return err
+	possibleTimes := []string{
+		time.RFC1123,
+		time.RFC822,
+		time.RFC822Z,
+		time.RFC1123Z,
+		"Mon, 2 Jan 2006 15:04:05 -0700",
 	}
 
-	*c = customTime(parse)
-	return nil
+	var parse time.Time
+	for _, timeFormat := range possibleTimes {
+		parse, err = time.Parse(timeFormat, v)
+		if err == nil {
+			*c = customTime(parse)
+			return nil
+		}
+	}
+
+	return err
 }
 
 type Channel struct {
