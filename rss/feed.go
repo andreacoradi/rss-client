@@ -35,6 +35,11 @@ func (f Feed) Items() map[string][]Item {
 	return ret
 }
 
+func (f Feed) Category(category string) []Item {
+	items := f.CachedItems()
+	return items[category]
+}
+
 var (
 	cache           map[string][]Item
 	cacheExpiration time.Time
@@ -58,16 +63,17 @@ type handler struct {
 	tpl  *template.Template
 }
 
-func (h handler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
-	//path := strings.TrimSpace(r.URL.Path)
-	//if path == "" || path == "/" {
-	//	path = "/intro"
-	//}
-	//path = path[1:]
+func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimSpace(r.URL.Path)
 	start := time.Now()
-	items := h.feed.CachedItems()
-	//items := h.feed.Items()
-	err := h.tpl.Execute(w, items)
+	articles := make(map[string][]Item)
+	if path != "" && path != "/" {
+		path = path[1:]
+		articles[path] = h.feed.Category(path)
+	} else {
+		articles = h.feed.CachedItems()
+	}
+	err := h.tpl.Execute(w, articles)
 	if err != nil {
 		log.Printf(err.Error())
 		http.Error(w, "Something went wrong...", http.StatusInternalServerError)
@@ -75,8 +81,6 @@ func (h handler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	log.Println("Refresh time:", time.Now().Sub(start))
-
-	//http.Error(w, fmt.Sprintf("Could not find category %q", path), http.StatusNotFound)
 }
 
 func NewHandler(feed Feed, template *template.Template) http.Handler {

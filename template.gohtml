@@ -25,11 +25,17 @@
             color: #888;
             padding: 10px 0;
         }
+
+        .category {
+        }
     </style>
 </head>
 <body>
+{{$lenght := len .}}
 {{range $category, $items := .}}
-    <h2>{{$category}}</h2>
+    {{if gt $lenght 1}}
+        <h2 class="category"><a href="/{{$category}}">{{$category}}</a></h2>
+    {{end}}
     {{range $items}}
         <li><a href="{{.URL}}">{{.Title}}</a> <span class="host">({{.GetHost}}</span> / <span
                     class="time">{{.GetDate}})</span></li>

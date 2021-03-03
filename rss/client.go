@@ -98,6 +98,12 @@ type client struct {
 	interval int
 }
 
+type result struct {
+	category string
+	items    []Item
+	err      error
+}
+
 func parseRSS(r io.Reader) (RSS, error) {
 	dec := xml.NewDecoder(r)
 	var rss RSS
@@ -113,6 +119,26 @@ func (c *client) addSource(category, link string) {
 	c.urls[category] = append(c.urls[category], link)
 }
 
+func (c client) getCategory(category string, resultCh chan result) {
+	for _, link := range c.urls[category] {
+		go func(category, link string) {
+			resp, err := http.Get(link)
+			if err != nil {
+				resultCh <- result{err: err}
+				return
+			}
+			defer resp.Body.Close()
+
+			rss, err := parseRSS(resp.Body)
+			if err != nil {
+				resultCh <- result{err: err}
+				return
+			}
+			resultCh <- result{category: category, items: rss.Channel.Items}
+		}(category, link)
+	}
+}
+
 func (c client) getLatest() map[string][]Item {
 	type result struct {
 		category string
@@ -123,29 +149,18 @@ func (c client) getLatest() map[string][]Item {
 	n := 0
 	for category, links := range c.urls {
 		n += len(links)
-		for _, link := range links {
-			go func(category, link string) {
-				resp, err := http.Get(link)
-				if err != nil {
-					resultCh <- result{err: err}
-					return
-				}
-				defer resp.Body.Close()
-
-				rss, err := parseRSS(resp.Body)
-				if err != nil {
-					resultCh <- result{err: err}
-					return
-				}
-				resultCh <- result{category: category, items: rss.Channel.Items}
-			}(category, link)
+		if category == "" && len(c.urls) > 1 {
+			category = "Other"
 		}
+
+		c.getCategory(category, resultCh)
 	}
 
 	ret := make(map[string][]Item)
 	for i := 0; i < n; i++ {
 		res := <-resultCh
 		if res.err != nil {
+			log.Println(res.err)
 			continue
 		}
 
