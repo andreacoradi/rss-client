@@ -21,11 +21,12 @@ func main() {
 	port := flag.Int("port", 3000, "port to run web server on")
 	sourceFile := flag.String("sources", "sources.list", "provide a text file containing rss sources (links)")
 	updateTime := flag.Int("updateInterval", 10, "update interval in minutes")
+	maxAge := flag.Int("maxAge", 7, "get news that are no older than the value (days)")
 	flag.Parse()
 
 	tpl := template.Must(template.New("").Parse(templateText))
 
-	f := client.NewFeed(*updateTime)
+	f := client.NewFeed(*updateTime, *maxAge)
 	sourcesList, err := os.ReadFile(*sourceFile)
 	var category string
 	if err == nil {

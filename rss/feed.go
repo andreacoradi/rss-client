@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -15,21 +16,37 @@ type Feed struct {
 }
 
 func (f *Feed) AddSource(category, link string) {
-	// TODO: Implement the concept of categories
 	// FIXME: Invalidate cache to show articles from added source
 	f.client.addSource(category, link)
 }
 
-func NewFeed(interval int) Feed {
-	return Feed{Sources: []RSS{}, client: client{interval: interval, urls: make(map[string][]string)}}
+func NewFeed(interval, maxAge int) Feed {
+	return Feed{
+		Sources: []RSS{},
+		client: client{
+			interval: interval,
+			urls:     make(map[string][]string),
+			maxAge:   time.Duration(maxAge),
+		},
+	}
 }
 
 func (f Feed) Items() map[string][]Item {
 	ret := f.client.getLatest()
-	for _, items := range ret {
+	for category, items := range ret {
 		sort.Slice(items, func(i, j int) bool {
 			return time.Time(items[i].PubDate).After(time.Time(items[j].PubDate))
 		})
+
+		var t []Item
+		for _, item := range items {
+			if time.Time(item.PubDate).Before(time.Now().Add(time.Hour * 24 * -f.client.maxAge)) {
+				continue
+			}
+			t = append(t, item)
+		}
+
+		ret[category] = t
 	}
 
 	return ret

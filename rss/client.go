@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -64,14 +65,6 @@ type RSS struct {
 	Channel Channel  `xml:"channel"`
 }
 
-func (i Item) String() string {
-	var ret string
-	ret += fmt.Sprintf("%s (%v)\n", i.Title, time.Time(i.PubDate))
-	//ret += fmt.Sprintf("%s\n", i.Description)
-	ret += fmt.Sprintf("%s\n", i.URL)
-	return ret
-}
-
 func (i Item) GetDate() string {
 	delta := time.Now().Sub(time.Time(i.PubDate)).Round(time.Minute)
 	// FIXME: This could be better
@@ -96,6 +89,7 @@ func (i Item) GetHost() string {
 type client struct {
 	urls     map[string][]string
 	interval int
+	maxAge   time.Duration
 }
 
 type result struct {
@@ -140,11 +134,6 @@ func (c client) getCategory(category string, resultCh chan result) {
 }
 
 func (c client) getLatest() map[string][]Item {
-	type result struct {
-		category string
-		items    []Item
-		err      error
-	}
 	resultCh := make(chan result)
 	n := 0
 	for category, links := range c.urls {
