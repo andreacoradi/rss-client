@@ -6,12 +6,12 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
+	"github.com/andreacoradi/rssc/rss"
 	"html/template"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"rssc/rss"
 )
 
 //go:embed template.gohtml
@@ -26,7 +26,7 @@ func main() {
 
 	tpl := template.Must(template.New("").Parse(templateText))
 
-	f := client.NewFeed(*updateTime, *maxAge)
+	f := rss.NewFeed(*updateTime, *maxAge)
 	sourcesList, err := os.ReadFile(*sourceFile)
 	var category string
 	if err == nil {
@@ -40,7 +40,7 @@ func main() {
 		}
 	}
 
-	handler := client.NewHandler(f, tpl)
+	handler := rss.NewHandler(f, tpl)
 
 	fmt.Printf("Starting server on port %d...\n", *port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("localhost:%d", *port), handler))
