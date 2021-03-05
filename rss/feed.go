@@ -86,7 +86,12 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	articles := make(map[string][]Item)
 	if path != "" && path != "/" {
 		path = path[1:]
-		articles[path] = h.feed.Category(path)
+		items := h.feed.Category(path)
+		if len(items) == 0 {
+			http.NotFound(w, r)
+			return
+		}
+		articles[path] = items
 	} else {
 		articles = h.feed.CachedItems()
 	}
